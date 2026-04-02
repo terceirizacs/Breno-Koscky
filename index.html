@@ -557,15 +557,15 @@ function renderAll(rows){
   if(isSingleProd){
     const key=normProd(singleProd);const tA=moda(a.totalAulas[key]);const mA=rd(avg(a.aulasComp[key]));const pA=tA>0?mA/tA*100:0;
     h2+='<div class="d">'+tA+' aulas \u00b7 m\u00e9dia '+mA.toFixed(1).replace('.',',')+' assistidas ('+pA.toFixed(1)+'%)</div>';
-    h2+='<div class="hbar-area" style="height:auto;gap:24px"><div class="hbar-row"><span class="hbar-lbl">Total de Aulas</span><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:var(--accent)">'+tA+' aulas</div></div></div>';
-    h2+='<div class="hbar-row"><span class="hbar-lbl">M\u00e9dia Assistida</span><div class="hbar-track"><div class="hbar-fill" style="width:'+pA.toFixed(0)+'%;background:var(--teal)">'+mA.toFixed(1).replace('.',',')+' aulas ('+pA.toFixed(1)+'%)</div></div></div></div>';
+    h2+='<div class="hbar-area" style="height:auto;gap:24px"><div class="hbar-row"><span class="hbar-lbl">Total de Aulas</span><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:linear-gradient(90deg,var(--sky),var(--cyan))">'+tA+' aulas</div></div></div>';
+    h2+='<div class="hbar-row"><span class="hbar-lbl">M\u00e9dia Assistida</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(pA,2).toFixed(0)+'%;background:var(--teal)">'+(pA>15?mA.toFixed(1).replace('.',',')+' aulas ('+pA.toFixed(1)+'%)':'')+'</div></div>'+(pA<=15?'<span style="font-family:JetBrains Mono;font-size:13px;font-weight:600;color:var(--t2);margin-left:8px">'+mA.toFixed(1).replace('.',',')+' aulas ('+pA.toFixed(1)+'%)</span>':'')+'</div></div>';
   }else{
     h2+='<div class="d">Separado por produto</div><div class="hbar-area" style="height:auto;gap:20px">';
     prodOrder.forEach(k=>{if(!a.aulasComp[k]||!a.aulasComp[k].length)return;const nome=prodNames[k]||k;
       const tA=moda(a.totalAulas[k]);const mA=rd(avg(a.aulasComp[k]));const pA=tA>0?mA/tA*100:0;
       h2+='<div style="font-size:13px;color:'+(prodColors[k]||'var(--a2)')+';font-weight:600;margin-top:8px">'+nome+'</div>';
-      h2+='<div class="hbar-row"><span class="hbar-lbl">Total de Aulas</span><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:'+(prodColors[k]||'var(--accent)')+'">'+tA+' aulas</div></div></div>';
-      h2+='<div class="hbar-row"><span class="hbar-lbl">M\u00e9dia Assistida</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(pA,2).toFixed(0)+'%;background:var(--teal)">'+mA.toFixed(1).replace('.',',')+' aulas ('+pA.toFixed(1)+'%)</div></div></div>';
+      h2+='<div class="hbar-row"><span class="hbar-lbl">Total de Aulas</span><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:linear-gradient(90deg,var(--sky),var(--cyan))">'+tA+' aulas</div></div></div>';
+      h2+='<div class="hbar-row"><span class="hbar-lbl">M\u00e9dia Assistida</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(pA,2).toFixed(0)+'%;background:var(--teal)">'+(pA>15?mA.toFixed(1).replace('.',',')+' aulas ('+pA.toFixed(1)+'%)':'')+'</div></div>'+(pA<=15?'<span style="font-family:JetBrains Mono;font-size:13px;font-weight:600;color:var(--t2);margin-left:8px">'+mA.toFixed(1).replace('.',',')+' aulas ('+pA.toFixed(1)+'%)</span>':'')+'</div>';
     });h2+='</div>';
   }
   h2+='</div></div>';
@@ -719,15 +719,20 @@ function countByOrder(rows,colIdx,order){
 function pesqBarChart(title,desc,labels,data,colors,total){
   const mx=Math.max(...data,1);
   let h='<div class="card"><h3>'+title+'</h3><div class="d">'+desc+'</div><div class="chart"><div class="chart-bars">';
-  labels.forEach((l,i)=>{const q=data[i];const hh=Math.round(q/mx*90);const pc=total>0?q/total*100:0;h+='<div class="bar" style="height:'+Math.max(hh,2)+'%;background:'+colors[i]+'"><span style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:11px;font-family:JetBrains Mono;font-weight:600;color:var(--t1);white-space:nowrap">'+q+'</span><span class="tt">'+l+': '+q+' ('+fmtP(pc)+')</span></div>';});
+  labels.forEach((l,i)=>{const q=data[i];const hh=Math.round(q/mx*90);const pc=total>0?q/total*100:0;h+='<div class="bar" style="height:'+Math.max(hh,2)+'%;background:'+colors[i]+'"><span style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:11px;font-family:JetBrains Mono;font-weight:600;color:var(--t1);white-space:nowrap">'+fmtP(pc)+'</span><span class="tt">'+l+': '+q+' ('+fmtP(pc)+')</span></div>';});
   h+='</div><div class="chart-labels">';labels.forEach(l=>{h+='<div class="chart-lbl">'+l+'</div>';});
   h+='</div></div></div>';return h;
 }
 function pesqHbarChart(title,desc,labels,data,colors,total){
   const mx=Math.max(...data,1);
   let h='<div class="card"><h3>'+title+'</h3><div class="d">'+desc+'</div><div class="hbar-area" style="height:auto;gap:20px">';
-  labels.forEach((l,i)=>{const q=data[i];const pc=total>0?q/total*100:0;
-    h+='<div class="hbar-row"><span class="hbar-lbl" style="min-width:180px">'+l+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(Math.round(q/mx*100),2)+'%;background:'+colors[i]+'">'+q+' ('+fmtP(pc)+')</div></div></div>';
+  labels.forEach((l,i)=>{const q=data[i];const pc=total>0?q/total*100:0;const widthPct=Math.max(Math.round(q/mx*100),2);
+    const txt=q+' ('+fmtP(pc)+')';
+    if(widthPct>35){
+      h+='<div class="hbar-row"><span class="hbar-lbl" style="min-width:180px">'+l+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+widthPct+'%;background:'+colors[i]+'">'+txt+'</div></div></div>';
+    }else{
+      h+='<div class="hbar-row"><span class="hbar-lbl" style="min-width:180px">'+l+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+widthPct+'%;background:'+colors[i]+'"></div></div><span style="font-family:JetBrains Mono;font-size:13px;font-weight:600;color:var(--t2);margin-left:8px;flex-shrink:0">'+txt+'</span></div>';
+    }
   });h+='</div></div>';return h;
 }
 function pesqDonut(title,desc,labels,data,colors,total){
@@ -875,8 +880,9 @@ function renderDetalhamento(rows){
   h+=kpiCard('linear-gradient(90deg,var(--accent),var(--a2))','Total Alunos',fmtN(sorted.length),'','var(--a2)');
   const avgProg=sorted.length?Math.round(sorted.reduce((s,r)=>s+(r[R.PROG]||0),0)/sorted.length*10)/10:0;
   h+=kpiCard('linear-gradient(90deg,var(--teal),var(--green))','M\u00e9dia Progresso',fmtP(avgProg),'','var(--teal)');
-  const totalAulas=sorted.reduce((s,r)=>s+(r[R.AULAS]||0),0);
-  h+=kpiCard('linear-gradient(90deg,var(--sky),var(--cyan))','Aulas Assistidas',fmtN(totalAulas),'total acumulado','var(--sky)');
+  const acessosMes=sorted.filter(r=>r[R.QTD_ACESSOS]>=0&&r[R.DT_COMPRA]).map(r=>{const dd=Math.max(Math.floor((TODAY_MS-r[R.DT_COMPRA])/86400000),1);return r[R.QTD_ACESSOS]/Math.max(dd/30,1);});
+  const avgAcMes=acessosMes.length?Math.round(acessosMes.reduce((s,v)=>s+v,0)/acessosMes.length*10)/10:0;
+  h+=kpiCard('linear-gradient(90deg,var(--sky),var(--cyan))','M\u00e9dia de Acessos',avgAcMes.toFixed(1).replace('.',','),'acessos/m\u00eas por aluno','var(--sky)');
   const nuncaAcessou=sorted.filter(r=>!r[R.ACESSOU]).length;
   h+=kpiCard('linear-gradient(90deg,var(--red),var(--pink))','Nunca Acessaram',fmtN(nuncaAcessou),sorted.length?fmtP(Math.round(nuncaAcessou/sorted.length*1000)/10)+' da base':'','var(--red)');
   h+='</div>';
