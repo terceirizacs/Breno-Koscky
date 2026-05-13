@@ -541,6 +541,61 @@ function renderReembolso(){
   const valorTotal = totalReemb * REEMB_VALOR_UNIT;
   const pctReemb = total>0 ? totalReemb/total*100 : 0;
 
+  // ===== Análise dos reembolsantes (cruza com RAW_DATA pra puxar progresso) =====
+  const reembolsantesArr = reembolsadosArr.concat(pedidosArr);
+  const csByEmail = {};
+  const csByNome = {};
+  function normTxt(s){return (s||'').toString().toLowerCase().trim();}
+  (RAW_DATA || []).forEach(rr => {
+    const em = normTxt(rr[R.EMAIL]);
+    const nm = normTxt(rr[R.NOME]);
+    const dados = {
+      prog: typeof rr[R.PROG]==='number'?rr[R.PROG]:null,
+      acessou: !!rr[R.ACESSOU],
+      aulasComp: typeof rr[R.AULAS]==='number'?rr[R.AULAS]:null,
+      totalAulas: typeof rr[R.TOTAL_AULAS]==='number'?rr[R.TOTAL_AULAS]:null,
+      qtdAcessos: typeof rr[R.QTD_ACESSOS]==='number'?rr[R.QTD_ACESSOS]:0
+    };
+    if(em && !csByEmail[em]) csByEmail[em] = dados;
+    if(nm && !csByNome[nm]) csByNome[nm] = dados;
+  });
+
+  // Tempo entre compra e pedido de reembolso
+  const diasReemb = [];
+  reembolsantesArr.forEach(r => {
+    const tCompra = parseReembDate(r.data_compra);
+    const tEtapa = parseReembDate(r.data_etapa);
+    if(tCompra && tEtapa && tEtapa >= tCompra){
+      diasReemb.push((tEtapa - tCompra) / 86400000);
+    }
+  });
+  const avgDiasReemb = diasReemb.length ? diasReemb.reduce((a,b)=>a+b,0)/diasReemb.length : 0;
+  const minDiasReemb = diasReemb.length ? Math.min(...diasReemb) : 0;
+  const maxDiasReemb = diasReemb.length ? Math.max(...diasReemb) : 0;
+
+  // Cross com CS — denominador = TODOS os reembolsantes
+  let reembComCs = 0, reembAcessou = 0;
+  const progressosReemb = [];
+  const aulasReemb = [];
+  reembolsantesArr.forEach(r => {
+    const em = normTxt(r.email);
+    const nm = normTxt(r.nome);
+    const cs = csByEmail[em] || csByNome[nm];
+    if(cs){
+      reembComCs++;
+      if(cs.acessou) reembAcessou++;
+      progressosReemb.push(cs.prog !== null ? cs.prog : 0);
+      aulasReemb.push(cs.aulasComp !== null ? cs.aulasComp : 0);
+    } else {
+      progressosReemb.push(0);
+      aulasReemb.push(0);
+    }
+  });
+  const totalReembol = reembolsantesArr.length;
+  const pctReembAcessou = totalReembol > 0 ? reembAcessou/totalReembol*100 : 0;
+  const avgProgReemb = progressosReemb.length ? progressosReemb.reduce((a,b)=>a+b,0)/progressosReemb.length : 0;
+  const avgAulasReemb = aulasReemb.length ? aulasReemb.reduce((a,b)=>a+b,0)/aulasReemb.length : 0;
+
   let h = '';
 
   if(total === 0){
@@ -620,6 +675,45 @@ function renderReembolso(){
   });
   h += '</div>';
   h += '</div>';
+
+  // ===== Comportamento dos Reembolsantes =====
+  if(reembolsantesArr.length > 0){
+    h += '<div class="sec">&#128269; Comportamento dos Reembolsantes</div>';
+    h += '<div class="g3">';
+
+    h += '<div class="card"><h3>Tempo at\u00e9 pedir reembolso</h3><div class="d">Dias entre compra e pedido</div>';
+    if(diasReemb.length > 0){
+      h += '<div style="font-size:42px;font-weight:700;font-family:JetBrains Mono;color:var(--accent);letter-spacing:-1.5px;margin:14px 0 4px">'+avgDiasReemb.toFixed(1).replace('.',',')+'<span style="font-size:18px;opacity:.7"> dias</span></div>';
+      h += '<div style="color:var(--t2);font-size:13px;margin-bottom:10px">m\u00e9dia de '+diasReemb.length+' '+(diasReemb.length===1?'reembolsante':'reembolsantes')+'</div>';
+      h += '<div style="display:flex;gap:12px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd)">';
+      h += '<div style="flex:1"><div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px">Mais r\u00e1pido</div><div style="font-family:JetBrains Mono;font-size:16px;font-weight:600;color:var(--green)">'+minDiasReemb.toFixed(1).replace('.',',')+' dias</div></div>';
+      h += '<div style="flex:1"><div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px">Mais demorado</div><div style="font-family:JetBrains Mono;font-size:16px;font-weight:600;color:#f59e0b">'+maxDiasReemb.toFixed(1).replace('.',',')+' dias</div></div>';
+      h += '</div>';
+    } else {
+      h += '<div style="color:var(--t3);font-size:13px;font-style:italic;margin-top:14px">Sem datas suficientes pra calcular.</div>';
+    }
+    h += '</div>';
+
+    h += '<div class="card"><h3>Acessaram o curso?</h3><div class="d">Reembolsantes que entraram pelo menos 1x</div>';
+    const corAcc = pctReembAcessou >= 50 ? '#f59e0b' : 'var(--green)';
+    h += '<div style="font-size:42px;font-weight:700;font-family:JetBrains Mono;color:'+corAcc+';letter-spacing:-1.5px;margin:14px 0 4px">'+pctReembAcessou.toFixed(0)+'%</div>';
+    h += '<div style="color:var(--t2);font-size:13px;margin-bottom:10px">'+reembAcessou+' de '+totalReembol+' reembolsantes acessaram</div>';
+    h += '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd);color:var(--t3);font-size:12px">';
+    h += pctReembAcessou >= 70 ? '<b style="color:#f59e0b">Sinal forte</b>: maioria viu o conte\u00fado antes de desistir \u2014 revisar promessa vs entrega.' : pctReembAcessou >= 30 ? 'Parte acessou, parte nem entrou. Vale segmentar abordagem.' : '<b style="color:var(--green)">Maioria nem acessou</b>: problema provavelmente \u00e9 de ativa\u00e7\u00e3o, n\u00e3o de conte\u00fado.';
+    h += '</div>';
+    if(reembComCs < totalReembol){
+      h += '<div style="margin-top:8px;font-size:10.5px;color:var(--t3);font-family:JetBrains Mono;font-style:italic">'+(totalReembol-reembComCs)+' n\u00e3o cruzaram com a base CS (contam como n\u00e3o acessaram).</div>';
+    }
+    h += '</div>';
+
+    h += '<div class="card"><h3>Progresso m\u00e9dio</h3><div class="d">Quanto do curso consumiram antes de pedir reembolso</div>';
+    const corProg = avgProgReemb >= 30 ? 'var(--red)' : avgProgReemb >= 10 ? '#f59e0b' : 'var(--green)';
+    h += '<div style="font-size:42px;font-weight:700;font-family:JetBrains Mono;color:'+corProg+';letter-spacing:-1.5px;margin:14px 0 4px">'+avgProgReemb.toFixed(1).replace('.',',')+'<span style="font-size:18px;opacity:.7">%</span></div>';
+    h += '<div style="color:var(--t2);font-size:13px;margin-bottom:10px">m\u00e9dia de '+totalReembol+' '+(totalReembol===1?'reembolsante':'reembolsantes')+'</div>';
+    h += '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd);color:var(--t3);font-size:12px">Aulas completas em m\u00e9dia: <b style="color:var(--t1);font-family:JetBrains Mono">'+avgAulasReemb.toFixed(1).replace('.',',')+'</b></div>';
+    h += '</div>';
+    h += '</div>';
+  }
 
   h += '<div class="sec">&#128202; Distribui\u00e7\u00e3o por Etapa Atual</div>';
   h += '<div class="card"><h3>Etapas no Fluxo</h3><div class="d">Onde cada aluno est\u00e1 agora \u00b7 acesso e resposta</div>';
