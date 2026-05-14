@@ -899,35 +899,51 @@ function renderReembolsoAvancado(de, ate){
   const _mesesNomes = ['Janeiro','Fevereiro','Mar\u00e7o','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const _nomeMesAnt = _mesesNomes[_mesAnt] + '/' + _anoAnt;
 
-  function calcReembMesAnt(matchProduto){
-    const _solicFiltradas = _solicAll.filter(s => {
+  function calcReembPorMes(matchProduto, mes, ano){
+    const inicio = new Date(ano, mes, 1).getTime();
+    const fim = new Date(ano, mes + 1, 0, 23, 59, 59).getTime();
+    const filtradas = _solicAll.filter(s => {
       if(!matchProduto((s.produto||'').toLowerCase())) return false;
       const t = s.dataSolicitacao;
       if(!t || isNaN(t)) return false;
-      return t >= _mesAntInicio && t <= _mesAntFim;
+      return t >= inicio && t <= fim;
     });
-    const _seen = new Set();
-    const _unicos = [];
-    _solicFiltradas.forEach(s => {
+    const seen = new Set();
+    const unicos = [];
+    filtradas.forEach(s => {
       const em = (s.email||'').toLowerCase().trim();
-      if(!em || _seen.has(em)) return;
-      _seen.add(em);
-      _unicos.push(s);
+      if(!em || seen.has(em)) return;
+      seen.add(em);
+      unicos.push(s);
     });
-    let _valor = 0;
-    _unicos.forEach(s => {
+    let valor = 0;
+    unicos.forEach(s => {
       const c = compraByTx[s.transacao];
       if(c && typeof c.faturamentoLiquido === 'number' && c.faturamentoLiquido > 0){
-        _valor += c.faturamentoLiquido;
+        valor += c.faturamentoLiquido;
       } else if(typeof s.valor === 'number') {
-        _valor += s.valor;
+        valor += s.valor;
       }
     });
-    return { valor: _valor, qtUnicos: _unicos.length };
+    return { valor: valor, qtUnicos: unicos.length };
   }
+  const calcReembMesAnt = (matchProduto) => calcReembPorMes(matchProduto, _mesAnt, _anoAnt);
 
-  const _bs = calcReembMesAnt(prod => prod.includes('bazar secreto') || prod.includes('bazar'));
-  const _fi = calcReembMesAnt(prod => prod.includes('foto ia') || prod.includes('foto-ia'));
+  const matchBs = prod => prod.includes('bazar secreto') || prod.includes('bazar');
+  const matchFi = prod => prod.includes('foto ia') || prod.includes('foto-ia');
+  const matchTodos = () => true;
+  const _bs = calcReembMesAnt(matchBs);
+  const _fi = calcReembMesAnt(matchFi);
+
+  // Mês retrasado (mês -2) para comparar com mês passado
+  let _mesRet = _hoje.getMonth() - 2;
+  let _anoRet = _hoje.getFullYear();
+  if(_mesRet < 0){ _mesRet += 12; _anoRet -= 1; }
+  const _nomeMesRet = _mesesNomes[_mesRet] + '/' + _anoRet;
+  const _bsRet = calcReembPorMes(matchBs, _mesRet, _anoRet);
+  const _fiRet = calcReembPorMes(matchFi, _mesRet, _anoRet);
+  const _totRet = calcReembPorMes(matchTodos, _mesRet, _anoRet);
+  const _totPas = calcReembPorMes(matchTodos, _mesAnt, _anoAnt);
 
   // ====== HTML ======
   let h = '<div class="sec" style="margin-top:32px">\ud83d\udcca An\u00e1lises Avan\u00e7adas</div>';
@@ -943,6 +959,38 @@ function renderReembolsoAvancado(de, ate){
   h += '<div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Reembolso Foto IA \u00b7 '+_nomeMesAnt+'</div>';
   h += '<div style="font-size:36px;font-weight:700;color:var(--teal);font-family:JetBrains Mono;letter-spacing:-1px">'+fmtBRL(_fi.valor)+'</div>';
   h += '<div style="color:var(--t2);font-size:13px;margin-top:4px">'+_fi.qtUnicos+' aluno'+(_fi.qtUnicos===1?'':'s')+' \u00fanico'+(_fi.qtUnicos===1?'':'s')+' \u00b7 faturamento l\u00edquido</div></div>';
+  h += '</div>';
+
+  // ===== EVOLU\u00c7\u00c3O M\u00caS A M\u00caS \u2014 redu\u00e7\u00e3o do reembolso =====
+  function varPctRed(novo, antigo){ if(!antigo) return novo>0?100:0; return Math.round((novo-antigo)/antigo*1000)/10; }
+  function corRed(v){ return v < 0 ? 'var(--green)' : (v > 0 ? 'var(--red)' : 'var(--t2)'); }
+  function setaRed(v){ return v < 0 ? '&#9660;' : (v > 0 ? '&#9650;' : '\u2014'); }
+  function legRed(v){ return v < 0 ? 'reduziu' : (v > 0 ? 'aumentou' : 'manteve'); }
+
+  function blocoEvolucao(titulo, antigo, novo, cor){
+    const pct = varPctRed(novo.valor, antigo.valor);
+    const dif = novo.valor - antigo.valor;
+    const c = corRed(pct);
+    const seta = setaRed(pct);
+    const leg = legRed(pct);
+    const pctQt = varPctRed(novo.qtUnicos, antigo.qtUnicos);
+    return '<div class="rc" style="padding:24px">'+
+      '<h3 style="color:'+cor+';margin-bottom:16px">'+titulo+'</h3>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">'+_nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+fmtBRL(antigo.valor)+' \u00b7 '+antigo.qtUnicos+' aluno'+(antigo.qtUnicos===1?'':'s')+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">'+_nomeMesAnt+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+fmtBRL(novo.valor)+' \u00b7 '+novo.qtUnicos+' aluno'+(novo.qtUnicos===1?'':'s')+'</span></div>'+
+      '<div style="margin-top:16px;padding:14px;border-radius:12px;background:'+(pct<0?'rgba(52,211,153,.08)':(pct>0?'rgba(248,113,113,.08)':'var(--track-bg)'))+';border:1px solid '+(pct<0?'rgba(52,211,153,.2)':(pct>0?'rgba(248,113,113,.2)':'var(--border)'))+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3)">Varia\u00e7\u00e3o em R$</span><span style="font-family:JetBrains Mono;font-size:22px;font-weight:700;color:'+c+'">'+seta+' '+(dif>=0?'+':'')+fmtBRL(dif)+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3)">Varia\u00e7\u00e3o em %</span><span style="font-family:JetBrains Mono;font-size:22px;font-weight:700;color:'+c+'">'+seta+' '+(pct>=0?'+':'')+pct.toFixed(1).replace('.',',')+'%</span></div>'+
+        '<div style="font-size:12px;color:var(--t2);margin-top:8px">Reembolsos '+leg+' '+Math.abs(pct).toFixed(1).replace('.',',')+'% \u00b7 alunos '+(pctQt>=0?'+':'')+pctQt.toFixed(1).replace('.',',')+'%</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  h += '<div class="sec" style="margin-top:32px">\ud83d\udcc8 Evolu\u00e7\u00e3o \u00b7 '+_nomeMesRet+' \u2192 '+_nomeMesAnt+'</div>';
+  h += '<div class="g3" style="margin-top:14px">';
+  h += blocoEvolucao('Total Geral', _totRet, _totPas, 'var(--accent)');
+  h += blocoEvolucao('Bazar Secreto', _bsRet, _bs, 'var(--accent)');
+  h += blocoEvolucao('Foto IA', _fiRet, _fi, 'var(--teal)');
   h += '</div>';
 
   // KPIs principais
