@@ -802,7 +802,8 @@ function renderReembolsoAvancado(de, ate){
   });
 
   // Matchers de produto
-  const isBs = p => { const lc=(p||'').toLowerCase(); return lc.includes('bazar secreto') || lc.includes('bazar'); };
+  // Bazar Secreto = somente BAZAR SECRETO + BÔNUS (exclui ACELERADOR TURBO: BAZAR SECRETO)
+  const isBs = p => { const lc=(p||'').toLowerCase(); return lc.includes('bazar secreto') && !lc.includes('acelerador'); };
   const isFi = p => { const lc=(p||'').toLowerCase(); return lc.includes('foto ia') || lc.includes('foto-ia'); };
 
   // ===== 1) ESPA\u00c7AMENTO compra \u2192 solicita\u00e7\u00e3o =====
@@ -929,7 +930,7 @@ function renderReembolsoAvancado(de, ate){
   }
   const calcReembMesAnt = (matchProduto) => calcReembPorMes(matchProduto, _mesAnt, _anoAnt);
 
-  const matchBs = prod => prod.includes('bazar secreto') || prod.includes('bazar');
+  const matchBs = prod => prod.includes('bazar secreto') && !prod.includes('acelerador');
   const matchFi = prod => prod.includes('foto ia') || prod.includes('foto-ia');
   const matchTodos = () => true;
   const _bs = calcReembMesAnt(matchBs);
@@ -948,18 +949,11 @@ function renderReembolsoAvancado(de, ate){
   // ====== HTML ======
   let h = '<div class="sec" style="margin-top:32px">\ud83d\udcca An\u00e1lises Avan\u00e7adas</div>';
 
-  // Banners Reembolso M\u00eas Anterior
-  h += '<div class="g2" style="margin-bottom:18px">';
-  h += '<div style="background:linear-gradient(90deg,rgba(139,124,247,.12),rgba(244,114,182,.08));border:1px solid rgba(139,124,247,.25);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;justify-content:center">';
+  // Banner Reembolso M\u00eas Anterior \u2014 Bazar Secreto
+  h += '<div style="margin-bottom:18px;background:linear-gradient(90deg,rgba(139,124,247,.12),rgba(244,114,182,.08));border:1px solid rgba(139,124,247,.25);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;justify-content:center">';
   h += '<div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Reembolso Bazar Secreto \u00b7 '+_nomeMesAnt+'</div>';
   h += '<div style="font-size:36px;font-weight:700;color:var(--accent);font-family:JetBrains Mono;letter-spacing:-1px">'+fmtBRL(_bs.valor)+'</div>';
   h += '<div style="color:var(--t2);font-size:13px;margin-top:4px">'+_bs.qtUnicos+' aluno'+(_bs.qtUnicos===1?'':'s')+' \u00fanico'+(_bs.qtUnicos===1?'':'s')+' \u00b7 faturamento l\u00edquido</div></div>';
-
-  h += '<div style="background:linear-gradient(90deg,rgba(45,212,191,.12),rgba(56,189,248,.08));border:1px solid rgba(45,212,191,.25);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;justify-content:center">';
-  h += '<div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Reembolso Foto IA \u00b7 '+_nomeMesAnt+'</div>';
-  h += '<div style="font-size:36px;font-weight:700;color:var(--teal);font-family:JetBrains Mono;letter-spacing:-1px">'+fmtBRL(_fi.valor)+'</div>';
-  h += '<div style="color:var(--t2);font-size:13px;margin-top:4px">'+_fi.qtUnicos+' aluno'+(_fi.qtUnicos===1?'':'s')+' \u00fanico'+(_fi.qtUnicos===1?'':'s')+' \u00b7 faturamento l\u00edquido</div></div>';
-  h += '</div>';
 
   // ===== EVOLU\u00c7\u00c3O M\u00caS A M\u00caS \u2014 ganho financeiro e % reembolso da receita l\u00edquida =====
   // Receita l\u00edquida do m\u00eas = soma do Faturamento L\u00edquido da aba "Todas as vendas"
@@ -1159,7 +1153,7 @@ function renderReembolsoAvancado(de, ate){
   }
 
   h += '<div class="sec" style="margin-top:32px;border-left:4px solid var(--pink,#f472b6);padding-left:12px">\ud83d\udc64 Perfil dos Reembolsantes \u00b7 Cruzamento com Planilha CS</div>';
-  h += '<div class="g2" style="margin-top:14px">';
+  h += '<div style="margin-top:14px">';
 
   h += '<div class="rc"><h3>\ud83d\udfe3 Reembolsantes Bazar Secreto \u00b7 Acesso e Progresso</h3>';
   h += '<div class="rc-row"><span class="rc-l">Total reembolsantes BS</span><span class="rc-v" style="color:var(--accent)">'+perfilBs.total+'</span></div>';
@@ -1176,54 +1170,6 @@ function renderReembolsoAvancado(de, ate){
   });
   h += '</div>';
 
-  h += '<div class="rc"><h3>\ud83d\udcf8 Reembolsantes Foto IA \u00b7 Acesso e Progresso</h3>';
-  h += '<div class="rc-row"><span class="rc-l">Total reembolsantes Foto IA</span><span class="rc-v" style="color:var(--teal)">'+perfilFi.total+'</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">Cruzados com a base CS</span><span class="rc-v" style="color:var(--t1)">'+perfilFi.totalCruzado+(perfilFi.semDado?' <small style="color:var(--t3)">('+perfilFi.semDado+' sem registro CS)</small>':'')+'</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">Nunca acessou</span><span class="rc-v" style="color:var(--red,#f87171)">'+perfilFi.nuncaAcessou+' ('+fmtP(perfilFi.pctNuncaAcessou)+')</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">Acessaram o curso</span><span class="rc-v" style="color:var(--green,#34d399)">'+perfilFi.acessaram+' ('+fmtP(perfilFi.totalCruzado>0?Math.round(perfilFi.acessaram/perfilFi.totalCruzado*1000)/10:0)+')</span></div>';
-  h += '<div class="rc-row" style="border-top:1px dashed var(--border);padding-top:8px;margin-top:8px"><span class="rc-l">Progresso m\u00e9dio</span><span class="rc-v" style="color:var(--gold,#fbbf24)">'+fmtP(perfilFi.progMedio)+'</span></div>';
-  const bFi = bucketProg(perfilFi.progressos);
-  const totalBFi = perfilFi.progressos.length || 1;
-  h += '<div style="margin-top:14px;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Distribui\u00e7\u00e3o de progresso</div>';
-  Object.entries(bFi).forEach(([k,n]) => {
-    if(n === 0) return;
-    h += '<div class="hbar-row"><span class="hbar-lbl">'+k+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.round(n/totalBFi*100)+'%;background:var(--teal)">'+n+' ('+fmtP(Math.round(n/totalBFi*1000)/10)+')</div></div></div>';
-  });
-  h += '</div>';
-
-  h += '</div>';
-
-  // Foto IA em destaque
-  h += '<div class="sec" style="margin-top:32px;border-left:4px solid var(--teal);padding-left:12px">\ud83c\udfaf Foto IA para Moda</div>';
-  h += '<div class="g3" style="margin-top:14px">';
-  h += '<div class="rc"><h3>Reembolsos Foto IA</h3>';
-  h += '<div class="rc-row"><span class="rc-l">Solicita\u00e7\u00f5es</span><span class="rc-v" style="color:var(--accent)">'+solicFi.length+'</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">Valor solicitado</span><span class="rc-v" style="color:var(--red,#f87171);font-family:JetBrains Mono">'+fmtBRL(valorFi)+'</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">% do total</span><span class="rc-v" style="color:var(--gold,#fbbf24)">'+(solics.length>0?Math.round(solicFi.length/solics.length*1000)/10:0)+'%</span></div>';
-  h += '</div>';
-
-  h += '<div class="rc"><h3>Quem reembolsa Foto IA tamb\u00e9m tinha BS?</h3>';
-  // calc reverso: emails que pediram reembolso de Foto IA, vs base de compra
-  const emailsFiReemb = {};
-  solicFi.forEach(s => { if(s.email) emailsFiReemb[s.email] = 1; });
-  let fiAlsoBs = 0, fiSoFi = 0;
-  Object.keys(emailsFiReemb).forEach(em => {
-    const compsEmail = comprasByEmail[em] || [];
-    const teveBs = compsEmail.some(c => isBs(c.produto));
-    if(teveBs) fiAlsoBs++; else fiSoFi++;
-  });
-  const totalFi2 = fiAlsoBs + fiSoFi || 1;
-  h += '<div class="rc-row"><span class="rc-l">Comprou BS + Foto IA</span><span class="rc-v" style="color:var(--green,#34d399)">'+fiAlsoBs+' ('+Math.round(fiAlsoBs/totalFi2*100)+'%)</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">S\u00f3 Foto IA</span><span class="rc-v" style="color:var(--orange,#f59e0b)">'+fiSoFi+' ('+Math.round(fiSoFi/totalFi2*100)+'%)</span></div>';
-  h += '</div>';
-
-  h += '<div class="rc"><h3>Comparativo BS vs Foto IA</h3>';
-  h += '<div class="rc-row"><span class="rc-l">Bazar Secreto reembolsos</span><span class="rc-v" style="color:var(--accent)">'+solicBs.length+' \u00b7 '+fmtBRL(valorBs)+'</span></div>';
-  h += '<div class="rc-row"><span class="rc-l">Foto IA reembolsos</span><span class="rc-v" style="color:var(--teal)">'+solicFi.length+' \u00b7 '+fmtBRL(valorFi)+'</span></div>';
-  const espFiProd = Object.keys(espPorProd).filter(k => isFi(k)).reduce((acc,k)=>acc.concat(espPorProd[k]),[]);
-  const espFiMedio = espFiProd.length?Math.round(espFiProd.reduce((a,b)=>a+b,0)/espFiProd.length):0;
-  h += '<div class="rc-row"><span class="rc-l">Espa\u00e7amento m\u00e9dio Foto IA</span><span class="rc-v" style="color:var(--orange,#f59e0b)">'+espFiMedio+' dias</span></div>';
-  h += '</div>';
   h += '</div>';
 
   // Motivos
