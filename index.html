@@ -971,17 +971,18 @@ function renderReembolsoAvancado(de, ate){
   }
 
   function blocoEvolucao(titulo, antigo, novo, cor, matchProduto){
-    const dif = novo.valor - antigo.valor;
-    // Ganho financeiro = quanto economizou (positivo se reduziu)
-    const ganho = -dif;
-    const c = ganho > 0 ? 'var(--green)' : (ganho < 0 ? 'var(--red)' : 'var(--t2)');
-    const seta = ganho > 0 ? '&#9660;' : (ganho < 0 ? '&#9650;' : '\u2014');
     const recRet = receitaLiquidaMes(_mesRet, _anoRet, matchProduto);
     const recPas = receitaLiquidaMes(_mesAnt, _anoAnt, matchProduto);
     const pctReembRet = recRet > 0 ? (antigo.valor / recRet * 100) : 0;
     const pctReembPas = recPas > 0 ? (novo.valor / recPas * 100) : 0;
     const difPct = pctReembPas - pctReembRet;
     const cPct = difPct < 0 ? 'var(--green)' : (difPct > 0 ? 'var(--red)' : 'var(--t2)');
+    // Ganho financeiro REAL = se o % tivesse continuado, quanto ter\u00edamos pago,
+    // menos o que realmente pagamos. Neutraliza diferen\u00e7a de faturamento entre meses.
+    const valorEsperadoSeMantidoPct = (pctReembRet/100) * recPas;
+    const ganho = valorEsperadoSeMantidoPct - novo.valor;
+    const c = ganho > 0 ? 'var(--green)' : (ganho < 0 ? 'var(--red)' : 'var(--t2)');
+    const seta = ganho > 0 ? '&#9660;' : (ganho < 0 ? '&#9650;' : '\u2014');
     return '<div class="rc" style="padding:24px">'+
       '<h3 style="color:'+cor+';margin-bottom:16px">'+titulo+'</h3>'+
       // Receita l\u00edquida (denominador)
@@ -999,7 +1000,7 @@ function renderReembolsoAvancado(de, ate){
       '<div style="margin-top:12px;padding:14px;border-radius:12px;background:'+(ganho>0?'rgba(52,211,153,.1)':(ganho<0?'rgba(248,113,113,.08)':'var(--track-bg)'))+';border:1px solid '+(ganho>0?'rgba(52,211,153,.25)':(ganho<0?'rgba(248,113,113,.2)':'var(--border)'))+'">'+
         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:6px">\ud83d\udcb0 '+(ganho>=0?'Ganho financeiro '+_nomeMesAnt:'Perda financeira '+_nomeMesAnt)+'</div>'+
         '<div style="font-family:JetBrains Mono;font-size:26px;font-weight:700;color:'+c+';line-height:1">'+seta+' '+fmtBRL(Math.abs(ganho))+'</div>'+
-        '<div style="font-size:12px;color:var(--t2);margin-top:8px">'+(ganho>0?'Economia gerada pela opera\u00e7\u00e3o vs '+_nomeMesRet:(ganho<0?'Reembolso aumentou vs '+_nomeMesRet:'Sem varia\u00e7\u00e3o'))+'</div>'+
+        '<div style="font-size:12px;color:var(--t2);margin-top:8px">'+(ganho>0?'Mantendo o % de '+_nomeMesRet+' ('+pctReembRet.toFixed(1).replace('.',',')+'%), pagaria '+fmtBRL(valorEsperadoSeMantidoPct)+'. Pagou '+fmtBRL(novo.valor)+'.':(ganho<0?'Mantendo o % de '+_nomeMesRet+' ('+pctReembRet.toFixed(1).replace('.',',')+'%), pagaria '+fmtBRL(valorEsperadoSeMantidoPct)+'. Pagou '+fmtBRL(novo.valor)+' (a mais).':'% manteve-se igual'))+'</div>'+
       '</div>'+
     '</div>';
   }
