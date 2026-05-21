@@ -902,28 +902,34 @@ function renderReembolsoAvancado(de, ate){
   const _nomeMesAnt = _mesesNomes[_mesAnt] + '/' + _anoAnt;
 
   function calcReembPorMes(matchProduto, mes, ano){
-    // Olha a aba "Compra de quem pediu o reembolso":
-    // filtra por DATA DE VENDA (col Q) no mês e soma FATURAMENTO LÍQUIDO (col BD)
+    // Filtra SOLICITAÇÕES de reembolso por dataSolicitacao no mês (igual o Lucas)
+    // Valor = faturamento líquido da compra correspondente (JOIN por transação)
     const inicio = new Date(ano, mes, 1).getTime();
     const fim = new Date(ano, mes + 1, 0, 23, 59, 59).getTime();
-    const filtradas = _compraAll.filter(c => {
-      if(!matchProduto((c.produto||'').toLowerCase())) return false;
-      const t = c.dataVenda;
+    const solicsFiltradas = (SOLIC_REEMB_RAW||[]).filter(s => {
+      if(!matchProduto((s.produto||'').toLowerCase())) return false;
+      const t = s.dataSolicitacao;
       if(!t || isNaN(t)) return false;
       return t >= inicio && t <= fim;
     });
+    // Dedup por email
     const seen = new Set();
     const unicos = [];
-    filtradas.forEach(c => {
-      const em = (c.email||'').toLowerCase().trim();
+    solicsFiltradas.forEach(s => {
+      const em = (s.email||'').toLowerCase().trim();
       if(!em || seen.has(em)) return;
       seen.add(em);
-      unicos.push(c);
+      unicos.push(s);
     });
+    // Valor = soma do faturamento líquido (via JOIN com compra por transação)
+    // Fallback pro valor da solicitação se não encontrar compra
     let valor = 0;
-    unicos.forEach(c => {
-      if(typeof c.faturamentoLiquido === 'number' && c.faturamentoLiquido > 0){
+    unicos.forEach(s => {
+      const c = compraByTx[s.transacao];
+      if(c && typeof c.faturamentoLiquido === 'number' && c.faturamentoLiquido > 0){
         valor += c.faturamentoLiquido;
+      } else if(typeof s.valor === 'number'){
+        valor += s.valor;
       }
     });
     return { valor: valor, qtUnicos: unicos.length };
