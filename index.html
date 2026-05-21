@@ -967,10 +967,14 @@ function renderReembolsoAvancado(de, ate){
     const inicio = new Date(ano, mes, 1).getTime();
     const fim = new Date(ano, mes + 1, 0, 23, 59, 59).getTime();
     let total = 0;
+    const seenTx = new Set(); // dedup por transação (export Hotmart duplica linhas)
     (TODAS_VENDAS_RAW||[]).forEach(v => {
       const dt = v.dataVenda;
       if(!dt || dt < inicio || dt > fim) return;
       if(matchProduto && !matchProduto((v.produto||'').toLowerCase())) return;
+      const tx = (v.transacao||'').trim();
+      if(tx && seenTx.has(tx)) return;
+      if(tx) seenTx.add(tx);
       total += (v.faturamentoLiquido||0);
     });
     return total;
