@@ -946,6 +946,12 @@ function renderReembolsoAvancado(de, ate){
     return { valor: filtradas.length * REEMB_VALOR_UNIT, qtUnicos: filtradas.length };
   }
 
+  // Reembolso BS por mês (qtUnicos × valor unitário do produto — mesmo critério dos meses)
+  function calcReembBsPorMes(mes, ano){
+    const base = calcReembPorMes(prod => prod.includes('bazar secreto') && !prod.includes('acelerador'), mes, ano);
+    return { valor: base.qtUnicos * REEMB_VALOR_UNIT, qtUnicos: base.qtUnicos };
+  }
+
   const matchBs = prod => prod.includes('bazar secreto') && !prod.includes('acelerador');
   const matchFi = prod => prod.includes('foto ia') || prod.includes('foto-ia');
   const matchTodos = () => true;
@@ -958,7 +964,7 @@ function renderReembolsoAvancado(de, ate){
   let _anoRet = _hoje.getFullYear();
   if(_mesRet < 0){ _mesRet += 12; _anoRet -= 1; }
   const _nomeMesRet = _mesesNomes[_mesRet] + '/' + _anoRet;
-  const _bsRet = calcReembPorMes(matchBs, _mesRet, _anoRet);
+  const _bsRet = calcReembBsPorMes(_mesRet, _anoRet); // BS mês anterior: qtAlunos × R$ 675 (mesmo critério do mês corrente)
   const _fiRet = calcReembPorMes(matchFi, _mesRet, _anoRet);
   const _totRet = calcReembPorMes(matchTodos, _mesRet, _anoRet);
   const _totPas = calcReembPorMes(matchTodos, _mesAnt, _anoAnt);
