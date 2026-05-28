@@ -979,13 +979,28 @@ function renderReembolsoAvancado(de, ate){
   h += '<div style="color:var(--t2);font-size:13px;margin-top:4px">'+_bs.qtUnicos+' aluno'+(_bs.qtUnicos===1?'':'s')+' \u00fanico'+(_bs.qtUnicos===1?'':'s')+' \u00b7 faturamento l\u00edquido</div></div>';
 
   // ===== EVOLU\u00c7\u00c3O M\u00caS A M\u00caS \u2014 receita l\u00edquida + qtd vendas =====
-  // Receita l\u00edquida = soma do Faturamento L\u00edquido das vendas que ENTRARAM
-  // no fluxo de onboarding-reembolso (REEMB_RAW). JOIN por email com "Todas as vendas".
-  // Quantidade = n\u00famero de emails \u00fanicos em REEMB_RAW no m\u00eas.
-  function receitaLiquidaMes(mes, ano, matchProduto){
+  // M\u00eas ANTERIOR (j\u00e1 fechado) \u2192 soma direto de "Todas as vendas" (dedup por transa\u00e7\u00e3o).
+  // M\u00eas CORRENTE (em andamento) \u2192 fluxo de onboarding-reembolso (REEMB_RAW) com JOIN por email.
+  function receitaLiquidaTodasVendas(mes, ano, matchProduto){
     const inicio = new Date(ano, mes, 1).getTime();
     const fim = new Date(ano, mes + 1, 0, 23, 59, 59).getTime();
-    // Index das vendas Hotmart por email (filtrado por produto)
+    let valor = 0, qtd = 0;
+    const seenTx = new Set();
+    (TODAS_VENDAS_RAW||[]).forEach(v => {
+      const dt = v.dataVenda;
+      if(!dt || dt < inicio || dt > fim) return;
+      if(matchProduto && !matchProduto((v.produto||'').toLowerCase())) return;
+      const tx = (v.transacao||'').trim();
+      if(tx && seenTx.has(tx)) return;
+      if(tx) seenTx.add(tx);
+      valor += (v.faturamentoLiquido||0);
+      qtd++;
+    });
+    return { valor: valor, qtd: qtd };
+  }
+  function receitaLiquidaOnboarding(mes, ano, matchProduto){
+    const inicio = new Date(ano, mes, 1).getTime();
+    const fim = new Date(ano, mes + 1, 0, 23, 59, 59).getTime();
     const vendasPorEmail = {};
     (TODAS_VENDAS_RAW||[]).forEach(v => {
       if(!v.email) return;
@@ -994,7 +1009,6 @@ function renderReembolsoAvancado(de, ate){
       if(!vendasPorEmail[e]) vendasPorEmail[e] = [];
       vendasPorEmail[e].push(v);
     });
-    // Percorre o fluxo de onboarding-reembolso no m\u00eas (dedup por email)
     const seenEmail = new Set();
     let valor = 0, qtd = 0;
     (REEMB_RAW||[]).forEach(r => {
@@ -1005,7 +1019,6 @@ function renderReembolsoAvancado(de, ate){
       seenEmail.add(e);
       qtd++;
       const vs = vendasPorEmail[e] || [];
-      // Pega a venda Hotmart mais pr\u00f3xima em data
       let melhor = null, dmelhor = Infinity;
       vs.forEach(v => {
         if(!v.dataVenda) return;
@@ -1015,15 +1028,15 @@ function renderReembolsoAvancado(de, ate){
       if(melhor && typeof melhor.faturamentoLiquido === 'number' && melhor.faturamentoLiquido > 0){
         valor += melhor.faturamentoLiquido;
       } else {
-        valor += REEMB_VALOR_UNIT; // fallback: valor unit\u00e1rio do produto
+        valor += REEMB_VALOR_UNIT;
       }
     });
     return { valor: valor, qtd: qtd };
   }
 
   function blocoEvolucao(titulo, antigo, novo, cor, matchProduto){
-    const recRet = receitaLiquidaMes(_mesRet, _anoRet, matchProduto);
-    const recPas = receitaLiquidaMes(_mesAnt, _anoAnt, matchProduto);
+    const recRet = receitaLiquidaTodasVendas(_mesRet, _anoRet, matchProduto);
+    const recPas = receitaLiquidaOnboarding(_mesAnt, _anoAnt, matchProduto);
     const pctReembRet = recRet.valor > 0 ? (antigo.valor / recRet.valor * 100) : 0;
     const pctReembPas = recPas.valor > 0 ? (novo.valor / recPas.valor * 100) : 0;
     const difPct = pctReembPas - pctReembRet;
