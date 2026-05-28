@@ -978,35 +978,59 @@ function renderReembolsoAvancado(de, ate){
   h += '<div style="font-size:36px;font-weight:700;color:var(--accent);font-family:JetBrains Mono;letter-spacing:-1px">'+fmtBRL(_bs.valor)+'</div>';
   h += '<div style="color:var(--t2);font-size:13px;margin-top:4px">'+_bs.qtUnicos+' aluno'+(_bs.qtUnicos===1?'':'s')+' \u00fanico'+(_bs.qtUnicos===1?'':'s')+' \u00b7 faturamento l\u00edquido</div></div>';
 
-  // ===== EVOLU\u00c7\u00c3O M\u00caS A M\u00caS \u2014 ganho financeiro e % reembolso da receita l\u00edquida =====
-  // Receita l\u00edquida do m\u00eas = soma do Faturamento L\u00edquido da aba "Todas as vendas"
+  // ===== EVOLU\u00c7\u00c3O M\u00caS A M\u00caS \u2014 receita l\u00edquida + qtd vendas =====
+  // Receita l\u00edquida = soma do Faturamento L\u00edquido das vendas que ENTRARAM
+  // no fluxo de onboarding-reembolso (REEMB_RAW). JOIN por email com "Todas as vendas".
+  // Quantidade = n\u00famero de emails \u00fanicos em REEMB_RAW no m\u00eas.
   function receitaLiquidaMes(mes, ano, matchProduto){
     const inicio = new Date(ano, mes, 1).getTime();
     const fim = new Date(ano, mes + 1, 0, 23, 59, 59).getTime();
-    let total = 0;
-    const seenTx = new Set(); // dedup por transação (export Hotmart duplica linhas)
+    // Index das vendas Hotmart por email (filtrado por produto)
+    const vendasPorEmail = {};
     (TODAS_VENDAS_RAW||[]).forEach(v => {
-      const dt = v.dataVenda;
-      if(!dt || dt < inicio || dt > fim) return;
+      if(!v.email) return;
       if(matchProduto && !matchProduto((v.produto||'').toLowerCase())) return;
-      const tx = (v.transacao||'').trim();
-      if(tx && seenTx.has(tx)) return;
-      if(tx) seenTx.add(tx);
-      total += (v.faturamentoLiquido||0);
+      const e = v.email.toLowerCase().trim();
+      if(!vendasPorEmail[e]) vendasPorEmail[e] = [];
+      vendasPorEmail[e].push(v);
     });
-    return total;
+    // Percorre o fluxo de onboarding-reembolso no m\u00eas (dedup por email)
+    const seenEmail = new Set();
+    let valor = 0, qtd = 0;
+    (REEMB_RAW||[]).forEach(r => {
+      const t = parseReembDate(r.data_compra);
+      if(!t || t < inicio || t > fim) return;
+      const e = (r.email||'').toLowerCase().trim();
+      if(!e || seenEmail.has(e)) return;
+      seenEmail.add(e);
+      qtd++;
+      const vs = vendasPorEmail[e] || [];
+      // Pega a venda Hotmart mais pr\u00f3xima em data
+      let melhor = null, dmelhor = Infinity;
+      vs.forEach(v => {
+        if(!v.dataVenda) return;
+        const d = Math.abs(v.dataVenda - t);
+        if(d < dmelhor){ dmelhor = d; melhor = v; }
+      });
+      if(melhor && typeof melhor.faturamentoLiquido === 'number' && melhor.faturamentoLiquido > 0){
+        valor += melhor.faturamentoLiquido;
+      } else {
+        valor += REEMB_VALOR_UNIT; // fallback: valor unit\u00e1rio do produto
+      }
+    });
+    return { valor: valor, qtd: qtd };
   }
 
   function blocoEvolucao(titulo, antigo, novo, cor, matchProduto){
     const recRet = receitaLiquidaMes(_mesRet, _anoRet, matchProduto);
     const recPas = receitaLiquidaMes(_mesAnt, _anoAnt, matchProduto);
-    const pctReembRet = recRet > 0 ? (antigo.valor / recRet * 100) : 0;
-    const pctReembPas = recPas > 0 ? (novo.valor / recPas * 100) : 0;
+    const pctReembRet = recRet.valor > 0 ? (antigo.valor / recRet.valor * 100) : 0;
+    const pctReembPas = recPas.valor > 0 ? (novo.valor / recPas.valor * 100) : 0;
     const difPct = pctReembPas - pctReembRet;
     const cPct = difPct < 0 ? 'var(--green)' : (difPct > 0 ? 'var(--red)' : 'var(--t2)');
     // Ganho financeiro REAL = se o % tivesse continuado, quanto ter\u00edamos pago,
     // menos o que realmente pagamos. Neutraliza diferen\u00e7a de faturamento entre meses.
-    const valorEsperadoSeMantidoPct = (pctReembRet/100) * recPas;
+    const valorEsperadoSeMantidoPct = (pctReembRet/100) * recPas.valor;
     const ganho = valorEsperadoSeMantidoPct - novo.valor;
     const c = ganho > 0 ? 'var(--green)' : (ganho < 0 ? 'var(--red)' : 'var(--t2)');
     const seta = ganho > 0 ? '&#9660;' : (ganho < 0 ? '&#9650;' : '\u2014');
@@ -1014,8 +1038,8 @@ function renderReembolsoAvancado(de, ate){
       '<h3 style="color:'+cor+';margin-bottom:8px">'+titulo+'</h3>'+
       '<div style="margin:-4px 0 16px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;font-size:11.5px;color:#fbbf24;display:flex;align-items:center;gap:8px"><span>\u26a0\ufe0f</span><span><b>'+_nomeMesAnt+' ainda em andamento</b> \u00b7 valor atualizado em tempo real (Exposi\u00e7\u00e3o Total: reembolsadas + pendentes)</span></div>'+
       // Receita l\u00edquida (denominador)
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Receita l\u00edquida '+_nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600;color:var(--t1)">'+fmtBRL(recRet)+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Receita l\u00edquida '+_nomeMesAnt+'</span><span style="font-family:JetBrains Mono;font-weight:600;color:var(--t1)">'+fmtBRL(recPas)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Receita l\u00edquida '+_nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600;color:var(--t1)">'+fmtBRL(recRet.valor)+' \u00b7 '+recRet.qtd+' venda'+(recRet.qtd===1?'':'s')+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Receita l\u00edquida '+_nomeMesAnt+'</span><span style="font-family:JetBrains Mono;font-weight:600;color:var(--t1)">'+fmtBRL(recPas.valor)+' \u00b7 '+recPas.qtd+' venda'+(recPas.qtd===1?'':'s')+'</span></div>'+
       // Reembolsos (numerador)
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Reembolso '+_nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+fmtBRL(antigo.valor)+' \u00b7 '+antigo.qtUnicos+' aluno'+(antigo.qtUnicos===1?'':'s')+'</span></div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Reembolso '+_nomeMesAnt+' <span style="color:#fbbf24;font-size:10px;font-weight:600">(em andamento)</span></span><span style="font-family:JetBrains Mono;font-weight:600">'+fmtBRL(novo.valor)+' \u00b7 '+novo.qtUnicos+' aluno'+(novo.qtUnicos===1?'':'s')+'</span></div>'+
