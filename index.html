@@ -1043,7 +1043,7 @@ function renderReembolsoAvancado(de, ate){
     return { valor: valor, qtd: qtd };
   }
 
-  function blocoEvolucao(titulo, mesRet, anoRet, mesAnt, anoAnt, antigo, novo, recRet, recPas, cor, ehCorrente){
+  function blocoEvolucao(titulo, mesRet, anoRet, mesAnt, anoAnt, antigo, novo, recRet, recPas, cor){
     const nomeMesRet = _mesesNomes[mesRet] + '/' + anoRet;
     const nomeMesAnt = _mesesNomes[mesAnt] + '/' + anoAnt;
     const pctReembRet = recRet.valor > 0 ? (antigo.valor / recRet.valor * 100) : 0;
@@ -1052,32 +1052,42 @@ function renderReembolsoAvancado(de, ate){
     const cPct = difPct < 0 ? 'var(--green)' : (difPct > 0 ? 'var(--red)' : 'var(--t2)');
     const pctVendasRet = recRet.qtd > 0 ? (antigo.qtUnicos / recRet.qtd * 100) : 0;
     const pctVendasPas = recPas.qtd > 0 ? (novo.qtUnicos / recPas.qtd * 100) : 0;
+    const valorEsperadoSeMantidoPct = (pctReembRet/100) * recPas.valor;
+    const ganho = valorEsperadoSeMantidoPct - novo.valor;
+    const c = ganho > 0 ? 'var(--green)' : (ganho < 0 ? 'var(--red)' : 'var(--t2)');
+    const seta = ganho > 0 ? '&#9660;' : (ganho < 0 ? '&#9650;' : '\u2014');
     return '<div class="rc" style="padding:24px">'+
       '<h3 style="color:'+cor+';margin-bottom:14px">'+titulo+' \u00b7 '+nomeMesRet+' \u2192 '+nomeMesAnt+'</h3>'+
-      (ehCorrente ? '<div style="margin:-4px 0 16px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;font-size:11.5px;color:#fbbf24;display:flex;align-items:center;gap:8px"><span>\u26a0\ufe0f</span><span><b>'+nomeMesAnt+' ainda em andamento</b> \u00b7 valor atualizado em tempo real</span></div>' : '')+
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Reembolso '+nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+antigo.qtUnicos+' aluno'+(antigo.qtUnicos===1?'':'s')+' \u00b7 '+pctVendasRet.toFixed(1).replace('.',',')+'% das vendas</span></div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Reembolso '+nomeMesAnt+(ehCorrente?' <span style="color:#fbbf24;font-size:10px;font-weight:600">(em andamento)</span>':'')+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+novo.qtUnicos+' aluno'+(novo.qtUnicos===1?'':'s')+' \u00b7 '+pctVendasPas.toFixed(1).replace('.',',')+'% das vendas</span></div>'+
-      '<div style="margin-top:14px;padding:14px 16px;border-radius:10px;background:var(--track-bg)">'+
+      // Receita l\u00edquida (denominador)
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Receita l\u00edquida '+nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600;color:var(--t1)">'+fmtBRL(recRet.valor)+' \u00b7 '+recRet.qtd+' venda'+(recRet.qtd===1?'':'s')+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Receita l\u00edquida '+nomeMesAnt+'</span><span style="font-family:JetBrains Mono;font-weight:600;color:var(--t1)">'+fmtBRL(recPas.valor)+' \u00b7 '+recPas.qtd+' venda'+(recPas.qtd===1?'':'s')+'</span></div>'+
+      // Reembolsos (numerador) \u2014 valor + alunos + % das vendas
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Reembolso '+nomeMesRet+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+fmtBRL(antigo.valor)+' \u00b7 '+antigo.qtUnicos+' aluno'+(antigo.qtUnicos===1?'':'s')+' \u00b7 '+pctVendasRet.toFixed(1).replace('.',',')+'% das vendas</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--track-bg)"><span style="color:var(--t2);font-size:13px">Reembolso '+nomeMesAnt+'</span><span style="font-family:JetBrains Mono;font-weight:600">'+fmtBRL(novo.valor)+' \u00b7 '+novo.qtUnicos+' aluno'+(novo.qtUnicos===1?'':'s')+' \u00b7 '+pctVendasPas.toFixed(1).replace('.',',')+'% das vendas</span></div>'+
+      // % do reembolso sobre receita l\u00edquida
+      '<div style="margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--track-bg)">'+
         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">% do reembolso sobre receita l\u00edquida</div>'+
-        '<div style="display:flex;align-items:baseline;gap:10px;font-family:JetBrains Mono"><span style="color:var(--t2);font-size:15px">'+pctReembRet.toFixed(1).replace('.',',')+'%</span><span style="color:var(--t3)">\u2192</span><span style="color:'+cPct+';font-size:22px;font-weight:700">'+pctReembPas.toFixed(1).replace('.',',')+'%</span><span style="color:'+cPct+';font-size:12px;margin-left:6px">'+(difPct<0?'':'+')+difPct.toFixed(1).replace('.',',')+'pp</span></div>'+
+        '<div style="display:flex;align-items:baseline;gap:10px;font-family:JetBrains Mono"><span style="color:var(--t2);font-size:15px">'+pctReembRet.toFixed(1).replace('.',',')+'%</span><span style="color:var(--t3)">\u2192</span><span style="color:'+cPct+';font-size:20px;font-weight:700">'+pctReembPas.toFixed(1).replace('.',',')+'%</span><span style="color:'+cPct+';font-size:12px;margin-left:6px">'+(difPct<0?'':'+')+difPct.toFixed(1).replace('.',',')+'pp</span></div>'+
+      '</div>'+
+      // Ganho/Perda financeiro
+      '<div style="margin-top:12px;padding:14px;border-radius:12px;background:'+(ganho>0?'rgba(52,211,153,.1)':(ganho<0?'rgba(248,113,113,.08)':'var(--track-bg)'))+';border:1px solid '+(ganho>0?'rgba(52,211,153,.25)':(ganho<0?'rgba(248,113,113,.2)':'var(--border)'))+'">'+
+        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:6px">\ud83d\udcb0 '+(ganho>=0?'Ganho financeiro '+nomeMesAnt:'Perda financeira '+nomeMesAnt)+'</div>'+
+        '<div style="font-family:JetBrains Mono;font-size:26px;font-weight:700;color:'+c+';line-height:1">'+seta+' '+fmtBRL(Math.abs(ganho))+'</div>'+
+        '<div style="font-size:12px;color:var(--t2);margin-top:8px">'+(ganho>0?'Mantendo o % de '+nomeMesRet+' ('+pctReembRet.toFixed(1).replace('.',',')+'%), pagaria '+fmtBRL(valorEsperadoSeMantidoPct)+'. Pagou '+fmtBRL(novo.valor)+'.':(ganho<0?'Mantendo o % de '+nomeMesRet+' ('+pctReembRet.toFixed(1).replace('.',',')+'%), pagaria '+fmtBRL(valorEsperadoSeMantidoPct)+'. Pagou '+fmtBRL(novo.valor)+' (a mais).':'% manteve-se igual'))+'</div>'+
       '</div>'+
     '</div>';
   }
 
-  // M\u00eas -2 (Mar/2026 quando refer\u00eancia \u00e9 Abril\u2192Maio) para o bloco fechado anterior
-  let _mesAntAnt = _mesRet - 1;
-  let _anoAntAnt = _anoRet;
-  if(_mesAntAnt < 0){ _mesAntAnt += 12; _anoAntAnt -= 1; }
-  const _nomeMesAntAnt = _mesesNomes[_mesAntAnt] + '/' + _anoAntAnt;
-  const _bsAntAnt = calcReembBsPorMes(_mesAntAnt, _anoAntAnt);
-  const _recBsAntAnt = receitaLiquidaTodasVendas(_mesAntAnt, _anoAntAnt, matchBs);
-  const _recBsRet = receitaLiquidaTodasVendas(_mesRet, _anoRet, matchBs);
+  // Receita l\u00edquida do Breno = vendas que entraram no fluxo onboarding-reembolso (REEMB_RAW), conforme regra fixa do dash.
+  const _recBsRet = receitaLiquidaOnboarding(_mesRet, _anoRet, matchBs);
   const _recBsPas = receitaLiquidaOnboarding(_mesAnt, _anoAnt, matchBs);
+  // Maio fechou em 31/05 \u2014 usa o mesmo crit\u00e9rio de m\u00eas fechado (SOLIC_REEMB_RAW dedup por email),
+  // n\u00e3o a Exposi\u00e7\u00e3o Total em tempo real.
+  const _bsFechado = calcReembBsPorMes(_mesAnt, _anoAnt);
 
-  h += '<div class="sec" style="margin-top:32px">\ud83d\udcc8 Evolu\u00e7\u00e3o \u00b7 '+_nomeMesAntAnt+' \u2192 '+_nomeMesRet+' \u2192 '+_nomeMesAnt+'</div>';
-  h += '<div class="g2" style="margin-top:14px">';
-  h += blocoEvolucao('Bazar Secreto', _mesAntAnt, _anoAntAnt, _mesRet, _anoRet, _bsAntAnt, _bsRet, _recBsAntAnt, _recBsRet, 'var(--accent)', false);
-  h += blocoEvolucao('Bazar Secreto', _mesRet, _anoRet, _mesAnt, _anoAnt, _bsRet, _bs, _recBsRet, _recBsPas, 'var(--accent)', true);
+  h += '<div class="sec" style="margin-top:32px">\ud83d\udcc8 Evolu\u00e7\u00e3o \u00b7 '+_nomeMesRet+' \u2192 '+_nomeMesAnt+'</div>';
+  h += '<div style="margin-top:14px">';
+  h += blocoEvolucao('Bazar Secreto', _mesRet, _anoRet, _mesAnt, _anoAnt, _bsRet, _bsFechado, _recBsRet, _recBsPas, 'var(--accent)');
   h += '</div>';
 
   // KPIs principais
